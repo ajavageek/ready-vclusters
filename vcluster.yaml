@@ -1,0 +1,50 @@
+networking:
+  replicateServices:
+    fromHost:
+      - from: logging/loki
+        to: logging/loki
+experimental:
+  deploy:
+    vcluster:
+      manifests: |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: alloy
+        data:
+          config.alloy: |
+            discovery.kubernetes "pods" {
+              role = "pod"
+            }
+            loki.source.kubernetes "k8s_logs" {
+              targets = discovery.kubernetes.pods.targets
+              forward_to = [loki.process.add_metadata.receiver]
+            }
+            loki.process "add_metadata" {
+              stage.labels {
+                values = {
+                  "namespace" = "kubernetes.namespace_name",
+                  "pod"       = "kubernetes.pod_name",
+                  "container" = "kubernetes.container_name",
+                }
+              }
+              forward_to = [loki.write.loki_receiver.receiver]
+            }
+            loki.write "loki_receiver" {
+              endpoint {
+                url = "http://loki.logging.svc.cluster.local:3100/loki/api/v1/push"
+                headers = { "X-Scope-OrgID" = "teamA" }
+              }
+            }
+      helm:
+        - chart:
+            name: alloy
+            repo: https://grafana.github.io/helm-charts
+            version: 0.11.0
+          release:
+            name: alloy
+          values: |
+            alloy:
+              configMap:
+                create: false
+                name: alloy

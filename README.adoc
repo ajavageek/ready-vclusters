@@ -1,0 +1,39 @@
+. Install Loki on the host cluster:
++
+[source,bash]
+----
+helm upgrade --install loki grafana/loki --namespace logging --create-namespace -f values.yaml
+----
++
+. Install a virtual cluster with Alloy ready to use:
++
+[source,bash]
+----
+helm upgrade --install vcluster vcluster/vcluster --namespace vcluster --create-namespace  --values vcluster.yaml
+----
++
+. Connect to the virtual cluster:
++
+[source,bash]
+----
+vcluster connect vcluster
+----
++
+. Install a dummy container that generates log in the virtual cluster:
++
+[source,bash]
+----
+kubectl apply -f manifest.yaml
+----
++
+. Check the logs:
++
+[source,bash]
+----
+ curl -G "http://localhost:31000/loki/api/v1/query_range" \
+     -H "X-Scope-OrgID: teamA" \
+     --data-urlencode 'query={job=~".+"}' \
+     --data-urlencode 'start='$(date -v-5M +%s) \
+     --data-urlencode 'end='$(date +%s) \
+     --data-urlencode 'limit=10'
+----
